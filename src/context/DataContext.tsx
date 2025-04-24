@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { 
   Expense, 
@@ -10,6 +11,8 @@ import {
   SpendingTrend
 } from "@/types";
 import { format } from "date-fns";
+import { uploadToS3, downloadFromS3, deleteFromS3 } from "@/services/s3Service";
+import { toast } from "@/hooks/use-toast";
 
 // Sample categories with icons from lucide-react
 const defaultCategories: Category[] = [
@@ -20,6 +23,45 @@ const defaultCategories: Category[] = [
   { id: "5", name: "Health", color: "#F44336", icon: "heart" },
   { id: "6", name: "Utilities", color: "#607D8B", icon: "zap" },
   { id: "7", name: "Other", color: "#9E9E9E", icon: "more-horizontal" },
+];
+
+// Default values with INR as the currency
+const defaultWallet: Wallet = { balance: 2450.75, currency: "INR" };
+const defaultBudget: Budget = { amount: 1000, period: "monthly" };
+const defaultThresholdAlert: ThresholdAlert = { amount: 500, enabled: true };
+const defaultGoals: FinancialGoal[] = [
+  {
+    id: "1",
+    name: "Vacation",
+    targetAmount: 1500,
+    currentAmount: 750,
+    deadline: new Date(2025, 8, 1),
+    description: "Summer vacation in Italy",
+  },
+  {
+    id: "2",
+    name: "New Laptop",
+    targetAmount: 1200,
+    currentAmount: 300,
+    deadline: new Date(2025, 6, 15),
+    description: "MacBook Air",
+  },
+];
+const defaultNotifications: Notification[] = [
+  {
+    id: "1",
+    message: "You've reached 90% of your monthly budget",
+    read: false,
+    date: new Date(2025, 3, 22),
+    type: "alert",
+  },
+  {
+    id: "2",
+    message: "Your electricity bill was higher than usual",
+    read: true,
+    date: new Date(2025, 3, 18),
+    type: "info",
+  },
 ];
 
 // Sample expenses
@@ -69,45 +111,6 @@ const defaultExpenses: Expense[] = [
   },
 ];
 
-// Default values with INR as the currency
-const defaultWallet: Wallet = { balance: 2450.75, currency: "INR" };
-const defaultBudget: Budget = { amount: 1000, period: "monthly" };
-const defaultThresholdAlert: ThresholdAlert = { amount: 500, enabled: true };
-const defaultGoals: FinancialGoal[] = [
-  {
-    id: "1",
-    name: "Vacation",
-    targetAmount: 1500,
-    currentAmount: 750,
-    deadline: new Date(2025, 8, 1),
-    description: "Summer vacation in Italy",
-  },
-  {
-    id: "2",
-    name: "New Laptop",
-    targetAmount: 1200,
-    currentAmount: 300,
-    deadline: new Date(2025, 6, 15),
-    description: "MacBook Air",
-  },
-];
-const defaultNotifications: Notification[] = [
-  {
-    id: "1",
-    message: "You've reached 90% of your monthly budget",
-    read: false,
-    date: new Date(2025, 3, 22),
-    type: "alert",
-  },
-  {
-    id: "2",
-    message: "Your electricity bill was higher than usual",
-    read: true,
-    date: new Date(2025, 3, 18),
-    type: "info",
-  },
-];
-
 // Calculate spending trends from expenses
 const calculateSpendingTrends = (expenses: Expense[]): SpendingTrend[] => {
   const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -154,9 +157,20 @@ interface DataContextType {
   addNotification: (notification: Omit<Notification, "id" | "date" | "read">) => void;
   deleteNotification: (notificationId: string) => void;
   clearAllNotifications: () => void;
+  clearAllData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
+
+// S3 storage keys
+const S3_KEYS = {
+  EXPENSES: "spendwise/expenses.json",
+  WALLET: "spendwise/wallet.json",
+  BUDGET: "spendwise/budget.json",
+  THRESHOLD_ALERT: "spendwise/threshold_alert.json",
+  GOALS: "spendwise/goals.json",
+  NOTIFICATIONS: "spendwise/notifications.json",
+};
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [expenses, setExpenses] = useState<Expense[]>(defaultExpenses);
@@ -167,6 +181,113 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [goals, setGoals] = useState<FinancialGoal[]>(defaultGoals);
   const [notifications, setNotifications] = useState<Notification[]>(defaultNotifications);
   const [spendingTrends, setSpendingTrends] = useState<SpendingTrend[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Load data from S3 on initial mount
+  useEffect(() => {
+    const loadDataFromS3 = async () => {
+      try {
+        // Load expenses
+        const storedExpenses = await downloadFromS3(S3_KEYS.EXPENSES);
+        if (storedExpenses) {
+          // Parse dates back to Date objects
+          const parsedExpenses = storedExpenses.map((exp: any) => ({
+            ...exp,
+            date: new Date(exp.date)
+          }));
+          setExpenses(parsedExpenses);
+        }
+
+        // Load wallet
+        const storedWallet = await downloadFromS3(S3_KEYS.WALLET);
+        if (storedWallet) setWallet(storedWallet);
+
+        // Load budget
+        const storedBudget = await downloadFromS3(S3_KEYS.BUDGET);
+        if (storedBudget) setBudgetState(storedBudget);
+
+        // Load threshold alert
+        const storedThresholdAlert = await downloadFromS3(S3_KEYS.THRESHOLD_ALERT);
+        if (storedThresholdAlert) setThresholdAlertState(storedThresholdAlert);
+
+        // Load goals
+        const storedGoals = await downloadFromS3(S3_KEYS.GOALS);
+        if (storedGoals) {
+          // Parse dates back to Date objects
+          const parsedGoals = storedGoals.map((goal: any) => ({
+            ...goal,
+            deadline: goal.deadline ? new Date(goal.deadline) : undefined
+          }));
+          setGoals(parsedGoals);
+        }
+
+        // Load notifications
+        const storedNotifications = await downloadFromS3(S3_KEYS.NOTIFICATIONS);
+        if (storedNotifications) {
+          // Parse dates back to Date objects
+          const parsedNotifications = storedNotifications.map((notif: any) => ({
+            ...notif,
+            date: new Date(notif.date)
+          }));
+          setNotifications(parsedNotifications);
+        }
+
+        setIsInitialLoad(false);
+      } catch (error) {
+        console.error("Error loading data from S3:", error);
+        // Just continue with default data
+        setIsInitialLoad(false);
+      }
+    };
+
+    loadDataFromS3();
+  }, []);
+
+  // Save data to S3 whenever it changes
+  useEffect(() => {
+    // Skip saving during initial load
+    if (isInitialLoad) return;
+
+    // Save expenses to S3
+    uploadToS3(S3_KEYS.EXPENSES, expenses).catch(err => 
+      console.error("Error saving expenses to S3:", err)
+    );
+  }, [expenses, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    uploadToS3(S3_KEYS.WALLET, wallet).catch(err => 
+      console.error("Error saving wallet to S3:", err)
+    );
+  }, [wallet, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    uploadToS3(S3_KEYS.BUDGET, budget).catch(err => 
+      console.error("Error saving budget to S3:", err)
+    );
+  }, [budget, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    uploadToS3(S3_KEYS.THRESHOLD_ALERT, thresholdAlert).catch(err => 
+      console.error("Error saving threshold alert to S3:", err)
+    );
+  }, [thresholdAlert, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    uploadToS3(S3_KEYS.GOALS, goals).catch(err => 
+      console.error("Error saving goals to S3:", err)
+    );
+  }, [goals, isInitialLoad]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    uploadToS3(S3_KEYS.NOTIFICATIONS, notifications).catch(err => 
+      console.error("Error saving notifications to S3:", err)
+    );
+  }, [notifications, isInitialLoad]);
 
   // Update spending trends whenever expenses change
   useEffect(() => {
@@ -320,6 +441,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearAllNotifications = () => {
     setNotifications([]);
   };
+  
+  const clearAllData = async () => {
+    try {
+      // Delete all data from S3
+      await Promise.all([
+        deleteFromS3(S3_KEYS.EXPENSES),
+        deleteFromS3(S3_KEYS.WALLET),
+        deleteFromS3(S3_KEYS.BUDGET),
+        deleteFromS3(S3_KEYS.THRESHOLD_ALERT),
+        deleteFromS3(S3_KEYS.GOALS),
+        deleteFromS3(S3_KEYS.NOTIFICATIONS),
+      ]);
+      
+      // Reset state to defaults
+      setExpenses(defaultExpenses);
+      setWallet(defaultWallet);
+      setBudgetState(defaultBudget);
+      setThresholdAlertState(defaultThresholdAlert);
+      setGoals(defaultGoals);
+      setNotifications([
+        {
+          id: Date.now().toString(),
+          message: "All data has been cleared successfully",
+          read: false,
+          date: new Date(),
+          type: "success",
+        },
+      ]);
+      
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      addNotification({
+        message: "Error clearing data. Please try again later.",
+        type: "alert",
+      });
+    }
+  };
 
   return (
     <DataContext.Provider
@@ -345,6 +503,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addNotification,
         deleteNotification,
         clearAllNotifications,
+        clearAllData,
       }}
     >
       {children}
