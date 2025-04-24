@@ -21,6 +21,9 @@ import NotFound from "./pages/NotFound";
 import AwsConfigModal from "./components/AwsConfigModal";
 import { Button } from "./components/ui/button";
 
+// Initialize AWS configuration with browser compatibility
+window.global = window;
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -37,7 +40,10 @@ const App = () => {
       AWS.config.update({
         accessKeyId,
         secretAccessKey,
-        region
+        region,
+        httpOptions: {
+          timeout: 30000 // 30 seconds timeout
+        }
       });
       setAwsConfigured(true);
     } else {

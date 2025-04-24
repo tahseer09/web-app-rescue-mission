@@ -8,7 +8,15 @@ AWS.config.update({
   // AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY should be set in the environment
 });
 
-const s3 = new AWS.S3();
+// Use S3 with the browser-specific configuration
+const s3 = new AWS.S3({
+  apiVersion: '2006-03-01',
+  // This explicitly uses browser-compatible settings
+  httpOptions: {
+    timeout: 30000 // 30 seconds timeout
+  }
+});
+
 const BUCKET_NAME = 'akhilsbucket523261';
 
 export const uploadToS3 = async (key: string, data: any): Promise<string> => {
