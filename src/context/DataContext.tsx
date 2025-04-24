@@ -10,8 +10,6 @@ import {
   Notification,
   SpendingTrend
 } from "@/types";
-import { format } from "date-fns";
-import { uploadToS3, downloadFromS3, deleteFromS3 } from "@/services/s3Service";
 import { toast } from "@/hooks/use-toast";
 
 // Sample categories with icons from lucide-react
@@ -162,16 +160,6 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// S3 storage keys
-const S3_KEYS = {
-  EXPENSES: "spendwise/expenses.json",
-  WALLET: "spendwise/wallet.json",
-  BUDGET: "spendwise/budget.json",
-  THRESHOLD_ALERT: "spendwise/threshold_alert.json",
-  GOALS: "spendwise/goals.json",
-  NOTIFICATIONS: "spendwise/notifications.json",
-};
-
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [expenses, setExpenses] = useState<Expense[]>(defaultExpenses);
   const [categories] = useState<Category[]>(defaultCategories);
@@ -181,17 +169,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [goals, setGoals] = useState<FinancialGoal[]>(defaultGoals);
   const [notifications, setNotifications] = useState<Notification[]>(defaultNotifications);
   const [spendingTrends, setSpendingTrends] = useState<SpendingTrend[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Load data from S3 on initial mount
+  // Load data from localStorage on initial mount
   useEffect(() => {
-    const loadDataFromS3 = async () => {
+    const loadData = () => {
       try {
         // Load expenses
-        const storedExpenses = await downloadFromS3(S3_KEYS.EXPENSES);
+        const storedExpenses = localStorage.getItem('expenses');
         if (storedExpenses) {
           // Parse dates back to Date objects
-          const parsedExpenses = storedExpenses.map((exp: any) => ({
+          const parsedExpenses = JSON.parse(storedExpenses).map((exp: any) => ({
             ...exp,
             date: new Date(exp.date)
           }));
@@ -199,22 +186,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Load wallet
-        const storedWallet = await downloadFromS3(S3_KEYS.WALLET);
-        if (storedWallet) setWallet(storedWallet);
+        const storedWallet = localStorage.getItem('wallet');
+        if (storedWallet) setWallet(JSON.parse(storedWallet));
 
         // Load budget
-        const storedBudget = await downloadFromS3(S3_KEYS.BUDGET);
-        if (storedBudget) setBudgetState(storedBudget);
+        const storedBudget = localStorage.getItem('budget');
+        if (storedBudget) setBudgetState(JSON.parse(storedBudget));
 
         // Load threshold alert
-        const storedThresholdAlert = await downloadFromS3(S3_KEYS.THRESHOLD_ALERT);
-        if (storedThresholdAlert) setThresholdAlertState(storedThresholdAlert);
+        const storedThresholdAlert = localStorage.getItem('thresholdAlert');
+        if (storedThresholdAlert) setThresholdAlertState(JSON.parse(storedThresholdAlert));
 
         // Load goals
-        const storedGoals = await downloadFromS3(S3_KEYS.GOALS);
+        const storedGoals = localStorage.getItem('goals');
         if (storedGoals) {
           // Parse dates back to Date objects
-          const parsedGoals = storedGoals.map((goal: any) => ({
+          const parsedGoals = JSON.parse(storedGoals).map((goal: any) => ({
             ...goal,
             deadline: goal.deadline ? new Date(goal.deadline) : undefined
           }));
@@ -222,72 +209,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // Load notifications
-        const storedNotifications = await downloadFromS3(S3_KEYS.NOTIFICATIONS);
+        const storedNotifications = localStorage.getItem('notifications');
         if (storedNotifications) {
           // Parse dates back to Date objects
-          const parsedNotifications = storedNotifications.map((notif: any) => ({
+          const parsedNotifications = JSON.parse(storedNotifications).map((notif: any) => ({
             ...notif,
             date: new Date(notif.date)
           }));
           setNotifications(parsedNotifications);
         }
-
-        setIsInitialLoad(false);
       } catch (error) {
-        console.error("Error loading data from S3:", error);
+        console.error("Error loading data:", error);
         // Just continue with default data
-        setIsInitialLoad(false);
       }
     };
 
-    loadDataFromS3();
+    loadData();
   }, []);
 
-  // Save data to S3 whenever it changes
+  // Save data to localStorage whenever it changes
   useEffect(() => {
-    // Skip saving during initial load
-    if (isInitialLoad) return;
-
-    // Save expenses to S3
-    uploadToS3(S3_KEYS.EXPENSES, expenses).catch(err => 
-      console.error("Error saving expenses to S3:", err)
-    );
-  }, [expenses, isInitialLoad]);
+    // Save expenses
+    localStorage.setItem('expenses', JSON.stringify(expenses));
+  }, [expenses]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
-    uploadToS3(S3_KEYS.WALLET, wallet).catch(err => 
-      console.error("Error saving wallet to S3:", err)
-    );
-  }, [wallet, isInitialLoad]);
+    localStorage.setItem('wallet', JSON.stringify(wallet));
+  }, [wallet]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
-    uploadToS3(S3_KEYS.BUDGET, budget).catch(err => 
-      console.error("Error saving budget to S3:", err)
-    );
-  }, [budget, isInitialLoad]);
+    localStorage.setItem('budget', JSON.stringify(budget));
+  }, [budget]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
-    uploadToS3(S3_KEYS.THRESHOLD_ALERT, thresholdAlert).catch(err => 
-      console.error("Error saving threshold alert to S3:", err)
-    );
-  }, [thresholdAlert, isInitialLoad]);
+    localStorage.setItem('thresholdAlert', JSON.stringify(thresholdAlert));
+  }, [thresholdAlert]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
-    uploadToS3(S3_KEYS.GOALS, goals).catch(err => 
-      console.error("Error saving goals to S3:", err)
-    );
-  }, [goals, isInitialLoad]);
+    localStorage.setItem('goals', JSON.stringify(goals));
+  }, [goals]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
-    uploadToS3(S3_KEYS.NOTIFICATIONS, notifications).catch(err => 
-      console.error("Error saving notifications to S3:", err)
-    );
-  }, [notifications, isInitialLoad]);
+    localStorage.setItem('notifications', JSON.stringify(notifications));
+  }, [notifications]);
 
   // Update spending trends whenever expenses change
   useEffect(() => {
@@ -442,17 +406,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setNotifications([]);
   };
   
-  const clearAllData = async () => {
+  const clearAllData = () => {
     try {
-      // Delete all data from S3
-      await Promise.all([
-        deleteFromS3(S3_KEYS.EXPENSES),
-        deleteFromS3(S3_KEYS.WALLET),
-        deleteFromS3(S3_KEYS.BUDGET),
-        deleteFromS3(S3_KEYS.THRESHOLD_ALERT),
-        deleteFromS3(S3_KEYS.GOALS),
-        deleteFromS3(S3_KEYS.NOTIFICATIONS),
-      ]);
+      // Clear all data from localStorage
+      localStorage.removeItem('expenses');
+      localStorage.removeItem('wallet');
+      localStorage.removeItem('budget');
+      localStorage.removeItem('thresholdAlert');
+      localStorage.removeItem('goals');
+      localStorage.removeItem('notifications');
       
       // Reset state to defaults
       setExpenses(defaultExpenses);

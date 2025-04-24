@@ -12,6 +12,7 @@ import { Bell, Wallet, PieChart, Download, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Settings: React.FC = () => {
+  
   const { 
     budget, 
     setBudget, 
