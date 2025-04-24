@@ -29,6 +29,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/app" element={<MainLayout />}>
+              <Route index element={<Navigate to="/app/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="add-expense" element={<AddExpense />} />
               <Route path="expenses" element={<Expenses />} />

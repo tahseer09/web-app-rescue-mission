@@ -69,8 +69,8 @@ const defaultExpenses: Expense[] = [
   },
 ];
 
-// Default values
-const defaultWallet: Wallet = { balance: 2450.75, currency: "USD" };
+// Default values with INR as the currency
+const defaultWallet: Wallet = { balance: 2450.75, currency: "INR" };
 const defaultBudget: Budget = { amount: 1000, period: "monthly" };
 const defaultThresholdAlert: ThresholdAlert = { amount: 500, enabled: true };
 const defaultGoals: FinancialGoal[] = [
@@ -243,6 +243,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateGoal = (updatedGoal: FinancialGoal) => {
+    const existingGoal = goals.find(goal => goal.id === updatedGoal.id);
+    
+    if (existingGoal) {
+      const amountAdded = updatedGoal.currentAmount - existingGoal.currentAmount;
+      
+      // If money was added to the goal, deduct it from the wallet
+      if (amountAdded > 0) {
+        setWallet(prev => ({
+          ...prev,
+          balance: prev.balance - amountAdded,
+        }));
+        
+        // Add a notification about the contribution
+        addNotification({
+          message: `You've contributed ${amountAdded} ${wallet.currency} to your "${updatedGoal.name}" goal.`,
+          type: "info"
+        });
+      }
+    }
+    
     setGoals(prev =>
       prev.map(goal => (goal.id === updatedGoal.id ? updatedGoal : goal))
     );
