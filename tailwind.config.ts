@@ -63,15 +63,13 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				rescue: {
-					blue: '#2563EB',
-					lightBlue: '#DBEAFE',
-					green: '#10B981',
-					lightGreen: '#D1FAE5',
-					red: '#EF4444',
-					lightRed: '#FEE2E2',
-					yellow: '#F59E0B',
-					lightYellow: '#FEF3C7',
+				expense: {
+					primary: '#6E59A5',
+					light: '#9b87f5',
+					dark: '#1A1F2C',
+					success: '#4CAF50',
+					warning: '#FFC107',
+					danger: '#F44336'
 				}
 			},
 			borderRadius: {
@@ -96,15 +94,21 @@ export default {
 						height: '0'
 					}
 				},
-				'pulse-glow': {
-					'0%, 100%': { boxShadow: '0 0 0 0 rgba(37, 99, 235, 0)' },
-					'50%': { boxShadow: '0 0 10px 3px rgba(37, 99, 235, 0.3)' }
-				}
+				'fade-in': {
+					"0%": {
+						opacity: "0",
+						transform: "translateY(10px)"
+					},
+					"100%": {
+						opacity: "1",
+						transform: "translateY(0)"
+					}
+				},
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'pulse-glow': 'pulse-glow 2s infinite'
+				'fade-in': 'fade-in 0.3s ease-out',
 			}
 		}
 	},
