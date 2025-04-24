@@ -1,5 +1,6 @@
+
 import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { 
   BarChart, 
   CreditCard, 
@@ -8,16 +9,13 @@ import {
   Target, 
   Receipt, 
   Bell,
-  Settings,
-  LogOut
+  Settings
 } from "lucide-react";
 import { useData } from "@/context/DataContext";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 const Sidebar: React.FC = () => {
   const { notifications } = useData();
-  const navigate = useNavigate();
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const navItems = [
@@ -29,10 +27,6 @@ const Sidebar: React.FC = () => {
     { icon: Bell, label: "Notifications", path: "/app/notifications", badge: unreadCount },
     { icon: Settings, label: "Settings", path: "/app/settings" }
   ];
-
-  const handleLogout = () => {
-    navigate('/');
-  };
 
   return (
     <div className="h-screen bg-sidebar border-r border-border w-64 flex flex-col fixed left-0 top-0">
@@ -71,18 +65,10 @@ const Sidebar: React.FC = () => {
           <div className="w-8 h-8 rounded-full bg-expense-light flex items-center justify-center text-white font-medium">
             U
           </div>
-          <div className="flex-1">
+          <div>
             <p className="text-sm font-medium">User</p>
             <p className="text-xs text-muted-foreground">user@example.com</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleLogout}
-            className="hover:bg-expense-light/10"
-          >
-            <LogOut className="h-4 w-4 text-expense-light" />
-          </Button>
         </div>
       </div>
     </div>
